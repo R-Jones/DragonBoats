@@ -1,0 +1,64 @@
+<html>
+    <head>
+        <style>
+            .item {
+    display: inline-block;
+    padding: 4px;
+    border: solid 1px black;
+    margin: 5px;
+}
+        </style>
+    </head>
+    <body>
+        <div id="uiContainer">
+
+        </div>
+
+    </body>
+    <script>
+
+
+            appState = {"heats":[]}
+            uiState = {"heat":null,"boat":null,"mode":"admin"}
+
+
+            const uiContainer = document.querySelector("#uiContainer");
+
+            ui = (appState, uiState) => {
+                heat=uiState["heat"], boat=uiState["boat"], mode=uiState["mode"]
+
+                //TODO: Switch on mode as well.
+                return heat != null
+                ? boatsUI(appState.heats[heat])
+                : heatsUI(appState)
+            }
+
+            heatsUI = (state) => state["heats"].reduce((acc,cur)=>acc+`<div num="${cur["id"]}" class="item">Heat ${cur["id"]}</div>`,'')
+            boatsUI = (heat) => heat["boats"].reduce((acc,cur)=>acc+`<div num="${cur["id"]}" class="item">Boat ${cur["id"]}</div>`,'')
+
+            handleResponse = (jsonResp) => {appState = jsonResp; uiContainer.innerHTML = ui(appState, uiState)};
+            //fetch('http://127.0.0.1:5000/0/0/addBoat',{'method':'POST'}).then(r=>r.json()).then(handleResponse)
+
+            post = (path) => fetch(`http://127.0.0.1:5000/${path}`,{'method':'POST'}).then(r=>r.json()).then(handleResponse)
+
+            addBoat = (uiState)=>post(`${uiState.heat}/addBoat`)
+            addHeat = (uiState)=>post(`addHeat`)
+
+            clickHandler = (e)=>{
+                if(e.target.attributes.num) {
+                    val = e.target.attributes.num.value;
+                    Object.assign(uiState, uiState.heat == null ? {"heat":val} : {"boat":val});
+                    uiContainer.innerHTML = ui(appState, uiState);
+ 
+                    console.log(e.target.attributes.num.value);
+                }
+
+            }
+
+            document.addEventListener('click',clickHandler);
+
+            post('getState');
+
+
+        </script>
+    </html>
