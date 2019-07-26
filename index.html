@@ -42,12 +42,12 @@
                 else if(heat != null) {
                     retval = boatsUI(appState.heats[heat])
                     return (uiState.mode == "admin" 
-                    ? `<div mode="timer" class="item">Stopwatch Mode</div>${retval}<div num="-1" class="item">Add Boat</div>` 
-                    : `<div mode="admin" class="item">Admin Mode</div>${retval}` )
+			    ? `<div mode="timer" class="item">Stopwatch Mode</div>${retval}<div num="-1" class="item">Add Boat</div>` 
+                    : `<div class="item" startAll>Start All</div><div mode="admin" class="item">Admin Mode</div>${retval}` )
                     + '<button cancelBoats>Cancel</button>'
                 }
                 else {
-                    return heatsUI(appState) + '<div num="-1" class="item">Add Heat</div>';
+			return '<div resetState class="item">Reset State</div>' + heatsUI(appState) + '<div num="-1" class="item">Add Heat</div>';
                 }
 
                 // //TODO: Switch on mode as well.
@@ -55,6 +55,19 @@
                 // ? boatsUI(appState.heats[heat])
                 // : heatsUI(appState)
             }
+
+            boatsTableUI = (heat) => { 
+		    return '<table>' + heat.boats.sort((a,b)=>new Date(a.EndTime) - new Date(b.EndTime))
+			             .reduce((acc,cur,i)=>acc+`<tr>
+					     <td>${cur.name}</td>
+					     <td>${uiState.heat}</td>
+					     <td>${new Date(cur.StartTime).toLocaleTimeString()}</td>
+					     <td color="${cur.color}">${cur.color || 'Colorless'}</td>
+					     <td>${(new Date(cur.EndTime) - new Date(cur.StartTime))/1000} seconds</td>
+					     <td>${i+1}</td>
+					     </tr>`,
+					     "<tr><th>Name</th><th>Heat</th><th>Start Time</th><th>>Color</th><th>Time</th><th>Heat Rank</th></tr>") + '</table>')
+	    }
 
             colors = ['','Red','Blue','Green']
 
@@ -65,20 +78,23 @@
                 ${cur["name"]}
                 ${
                     uiState.mode == "timer" 
-                    ? "<br>" + cur.StartTime + "<br>" + cur.EndTime
+				? '<br>' + (cur.StartTime ? cur.StartTime.split('T')[1] : 'Not Started') + '<br>' + (cur.EndTime ? (cur.EndTime.split('T')[1]) : 'Not Finished')
                     : ""
                 }
+		    ${cur.EndTime ? ('<br>' + ((new Date(cur.EndTime) - new Date(cur.StartTime)) / 1000) + ' seconds') : ''}
                 </div>`
                 ,'')
             boatUI = (boat) => `<div><label for="name">Name</label><input type="text" name="name" value="${boat.name}" /><label for="color">Color</label><select name="color" value="${boat.color}">
             ${colors.reduce((acc,cur)=>acc+'<option value="'+cur+'" '+((cur==boat.color)?'selected':'')+">"+cur+"</option>",'')}
             </select><button submitBoat class="submitBoat">Submit Changes</button></div><button cancelBoat class="cancelBoat">Cancel</button></div>`
 
-            handleResponse = (jsonResp) => {appState = jsonResp; uiContainer.innerHTML = ui(appState, uiState)};
-            //fetch('http://127.0.0.1:5000/0/0/addBoat',{'method':'POST'}).then(r=>r.json()).then(handleResponse)
+            handleResponse = (jsonResp) => {if(!jsonResp.unchanged && !uiState.boat){appState = jsonResp; uiContainer.innerHTML = ui(appState, uiState)}};
+            //fetch('http://127.0.0.1:4999/0/0/addBoat',{'method':'POST'}).then(r=>r.json()).then(handleResponse)
+
+            getState = () => post(`getState`,{stateId:appState.stateId})
 
             post = (path, body) => 
-            fetch(`http://127.0.0.1:5000/${path}`,
+	    fetch(`http://${window.location.host}:4999/${path}`,
             {
                 'headers': {
                 'Content-Type': body ? 'application/json' : ''
@@ -97,10 +113,10 @@
                     if(uiState.mode == "timer") {
                         console.log(appState.heats[uiState.heat].boats)
                         if(appState.heats[uiState.heat].boats.find((ele)=>ele.id == e.target.attributes.num.value).StartTime) {
-                            post(`${uiState.heat}/${e.target.attributes.num.value}/setEndTime`,{'EndTime':new Date().toISOString().split('T')[1]});
+                            post(`${uiState.heat}/${e.target.attributes.num.value}/setEndTime`,{'EndTime':new Date().toISOString()});
                         }
                         else {
-                            post(`${uiState.heat}/${e.target.attributes.num.value}/setStartTime`,{'StartTime':new Date().toISOString().split('T')[1]});
+                            post(`${uiState.heat}/${e.target.attributes.num.value}/setStartTime`,{'StartTime':new Date().toISOString()});
                         }
                         uiContainer.innerHTML = ui(appState, uiState);
                         return;
@@ -141,12 +157,21 @@
                     uiState.mode = "admin";
                     uiContainer.innerHTML = ui(appState, uiState);
                 }
+		else if(e.target.attributes.startAll) {
+			post(`${uiState.heat}/setHeatStartTime`,{'StartTime':new Date().toISOString()}); 
+		}
+		else if(e.target.attributes.resetState) {
+			post(`resetState`)
+                        uiState = {"heat":null,"boat":null,"mode":"admin"}
+		}
 
             }
 
             document.addEventListener('click',clickHandler);
 
             post('getState');
+            
+            setInterval(getState,1500);
 
 
         </script>

@@ -24,7 +24,6 @@ def index():
 @app.route('/addHeat',methods=['POST'])
 def addHeat():
     global heatCounter
-    print(mockdb)
         
     mockdb["heats"].append({"id":str(heatCounter),"boats":[]})
     heatCounter+=1
@@ -43,6 +42,22 @@ def addBoat(heatId):
     mockdb["stateId"]+=1
     return json.dumps(mockdb)
 
+@app.route('/<heatId>/deleteHeat',methods=['POST'])
+def deleteHeat(heatId):
+    mockdb["heats"] = [heat for heat in mockdb["heats"] if heat["id"] != heatId]
+    mockdb["stateId"] += 1
+    return json.dumps(mockdb)
+
+@app.route('/<heatId>/<boatId>/deleteBoat',methods=['POST'])
+def deleteBoat(heatId,boatId):
+    heat = [heat for heat in mockdb["heats"] if heat["id"] == heatId]
+    if not heat:
+        return '{"error": "Heat not found"}'
+    heat[0]["boats"] = [b for b in heat[0]["boats"] if b["id"] != boatId]
+    
+    mockdb["stateId"] += 1
+    return json.dumps(mockdb)
+
 def setBoatParm(heatId,boatId,k,v):
     heat = [heat for heat in mockdb["heats"] if heat["id"] == heatId]
     if not heat:
@@ -56,15 +71,22 @@ def setBoatParm(heatId,boatId,k,v):
     
     return json.dumps(mockdb)
 
+@app.route('/<heatId>/setHeatStartTime',methods=['POST'])
+def setHeatStartTime(heatId):
+    heat = [heat for heat in mockdb["heats"] if heat["id"] == heatId]
+    if not heat:
+        return '{"error": "Heat not found"}'
+    reqJSON = request.get_json()
+    for boatId in (boat["id"] for boat in heat[0]["boats"]):
+        setBoatParm(heatId, boatId, "StartTime", reqJSON["StartTime"])
+    return json.dumps(mockdb)
+
+
 @app.route('/<heatId>/<boatId>/setStartTime',methods=['POST'])
 def setStartTime(heatId,boatId):
-    print(heatId,boatId)
     reqJSON = request.get_json()
-    print(reqJSON)
     if not "StartTime" in reqJSON:
         return '{"error": "missing start time"}'
-    print(request.get_json())
-    mockdb["stateId"] += 1
     return setBoatParm(heatId,boatId,"StartTime",reqJSON["StartTime"])
 
 @app.route('/<heatId>/<boatId>/setEndTime',methods=['POST'])
@@ -72,7 +94,6 @@ def setEndTime(heatId,boatId):
     reqJSON = request.get_json()
     if not "EndTime" in reqJSON:
         return '{"error": "missing end time"}'
-    mockdb["stateId"] += 1
     return setBoatParm(heatId,boatId,"EndTime",reqJSON["EndTime"])
 
 @app.route('/<heatId>/<boatId>/setName',methods=['POST'])
@@ -80,7 +101,6 @@ def setName(heatId,boatId):
     reqJSON = request.get_json()
     if not "Name" in reqJSON:
         return '{"error": "missing name"}'
-    mockdb["stateId"] += 1
     return setBoatParm(heatId,boatId,"name",reqJSON["Name"])
 
 @app.route('/<heatId>/<boatId>/setColor',methods=['POST'])
@@ -88,13 +108,23 @@ def setColor(heatId,boatId):
     reqJSON = request.get_json()
     if not "Color" in reqJSON:
         return '{"error": "missing color"}'
-    mockdb["stateId"] += 1
     return setBoatParm(heatId,boatId,"color",reqJSON["Color"])
+
+@app.route('/resetState',methods=['POST'])
+def resetState():
+    global mockdb
+    global boatCounter
+    global heatCounter
+    mockdb = {"heats":[], "stateId":mockdb["stateId"]}
+    boatCounter = 0
+    heatCounter = 0
+    return mockdb
 
 @app.route('/getState',methods=['POST'])
 def getState():
     reqJSON = request.get_json()
-    if reqJSON and "stateId" in reqJSON and str(mockdb["stateId"]) == reqJSON["stateId"]:
+    print(reqJSON)
+    if reqJSON and ("stateId" in reqJSON) and (mockdb["stateId"] == reqJSON["stateId"]):
         return '{"unchanged": 1}'
     return json.dumps(mockdb)
 
